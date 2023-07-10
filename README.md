@@ -9,6 +9,7 @@
 - Try our fine-tuned model at the HuggingFace model hub:
     - **[TIM-BLOOMZ-7b](https://huggingface.co/Lemoooon/TIM-BLOOMZ-7b)**
     - **[TIM-LLaMA-13b](https://huggingface.co/Lemoooon/TIM-LLaMA-13b)**
+- Please refer our **[paper]()** for more detail. 
 
 :star: **Tips** :star:
 - When training with Deepspeed ZeRO stage 1/2, we can set --use_low_cpu_mem=True to save memory usage
@@ -47,7 +48,7 @@ Requirements:
  
  **(1) LoRA: Tuning with Low-rank Matrices**
  
- - sft_reward_training/run_lora.sh
+ - [sft_reward_training/run_lora.sh](https://github.com/lemon0830/TIM/blob/main/sft_reward_training/run_lora.sh)
  
  ```
     --only_optimize_lora    # if True, only optimizing the parameters of LoRA
@@ -59,7 +60,7 @@ Requirements:
 
  **(2) FixEmb: Tuning with Embedding Fixed**
  
- - sft_reward_training/run_fixemb.sh
+ - [sft_reward_training/run_fixemb.sh](https://github.com/lemon0830/TIM/blob/main/sft_reward_training/run_fixemb.sh)
  
  ```
     --only_optimize_layers "9" "8" "7" "6" "5" "4" "3" "2" "1" "0" 
@@ -67,7 +68,7 @@ Requirements:
  
  **(2) Full: Tuning with Full Parameters**
  
- - sft_reward_training/run_full.sh
+ - [sft_reward_training/run_full.sh](https://github.com/lemon0830/TIM/blob/main/sft_reward_training/run_full.sh)
 
 ### Deepspeed Config
 
@@ -77,7 +78,7 @@ Requirements:
 
  - inference/infer_bloom.py, inference/infer_llama.py
  
- - inference/run_test_bloomz.sh
+ - [inference/run_test_bloomz.sh](https://github.com/lemon0830/TIM/blob/main/inference/run_test_bloomz.sh)
  
  ```
     --rootmodel   # if LoRA, the path of the foundation model
@@ -96,5 +97,15 @@ We evaluate TIM's performance on the WMT and FLORES-200 dev-test tasks, comprisi
 <img src="https://github.com/lemon0830/TIM/blob/main/images/Fig_Results.png" width="70%" alt="result"/>
 </div>
 
+### Citation
+Please kindly cite our paper if you find it helpful:
 
+```ruby
+@inproceedings{zeng2023tim,
+  title={TIM: Teaching LM to Translate with Comparison}, 
+  author={Jiali Zeng and Fandong Meng and Yongjing Yin and Jia Zhou},
+  booktitle = {ArXiv},
+  year      = {2023}
+}
+```
  
