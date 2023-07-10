@@ -1,16 +1,14 @@
-<div align="center">
-    <img width="25%" alt="TIM" src="https://github.com/">
-    <h2>
-    TIM: Teaching LM to Translate with Comparison
-    </h2>
-</div>
+![image](https://github.com/lemon0830/TIM/blob/main/images/Fig_Model.png)
 
 # **TIM: Teaching LM to Translate with Comparison**
 
 :star: **Support** :star:
-- :LLMs: BLOOM-(e.g., [BLOOM-1b7](https://huggingface.co/bigscience/bloomz-1b7), [BLOOMZ-7b1-mt](https://huggingface.co/bigscience/bloomz-7b1-mt)), LLaMA-(e.g., [LLaMA-7b](),)
-- :Data-streaming
-- :Distributed training with deepspeed ZeRO stage 1/2/3 
+- LLMs: BLOOM-(e.g., [BLOOM-1b7](https://huggingface.co/bigscience/bloomz-1b7), [BLOOMZ-7b1-mt](https://huggingface.co/bigscience/bloomz-7b1-mt)), LLaMA-(e.g., [LLaMA-7b](https://huggingface.co/yahma/llama-7b-hf),[LLaMA-13b](https://huggingface.co/yahma/llama-13b-hf)), ChatGLM-(e.g., [ChatGLM2-6b](https://huggingface.co/THUDM/chatglm2-6b))
+- [Data-streaming](https://github.com/huggingface/datasets/blob/5f810b7011a8a4ab077a1847c024d2d9e267b065/docs/source/stream.mdx)
+- Distributed training with [deepspeed ZeRO stage 1/2/3](https://huggingface.co/docs/transformers/main_classes/deepspeed) 
+- Try our fine-tuned model at the HuggingFace model hub:
+    - **[TIM-BLOOMZ-7b](https://huggingface.co/Lemoooon/TIM-BLOOMZ-7b)**
+    - **[TIM-LLaMA-13b](https://huggingface.co/Lemoooon/TIM-LLaMA-13b)**
 
 ## Quick start
 
@@ -29,37 +27,70 @@ Requirements:
 
 ### Datasets
 
-- Training data: train_data/alpaca_reward.json, **[train.data.json](https://huggingface.co/datasets/Lemoooon/Train-for-TIM)**
+- Training data: [train_data/alpaca_reward.json](https://github.com/lemon0830/TIM/blob/main/train_data/alpaca_reward.json), **[train.data.json](https://huggingface.co/datasets/Lemoooon/Train-for-TIM)**
 
-  Example:
-  ```
-  Instruction: Translate from Chinese to English.
+  An essential ingredient of our method is the construction of samples used to provide comparison signals for model learning. In addition to regular translation data, we construct data used for comparison by introducing dictionary information or translation errors
+
+  ![image](https://github.com/lemon0830/TIM/blob/main/images/Fig_data_construct.png)
   
-  Input: 国有企业和优势民营企业走进赣南革命老区。
-  
-  Output: State-owned enterprises and advantageous private enterprises entered the revolutionary base area of south Jiangxi.
-  
-  Bad Output: enterprises and dominant private visited enterprises  the Gannan base.
-  
-  ```
-  
- - test data: test_data/wmt22, test_data/flores200
- 
+ - test data: [test_data/wmt22](https://github.com/lemon0830/TIM/tree/main/test_data/wmt22), [test_data/flores200](https://github.com/lemon0830/TIM/tree/main/test_data/flores200)
+
  ### Instruct Tuning with TIM
  
- We modify the example script in transformers, i.e., `run_clm.py` and `Trainer`; and the code for LoRA in Deepspeed-Chat, i.e., utils.
- We support three training strategies: (1) LoRA, (2) FixEmb, (3) Full
+ We modify `run_clm.py` and `Trainer` in transformers, and `utils` for LoRA in Deepspeed-Chat.
+ In addition to vanilla fine-tuning all model parameters, parameter-efficient fine-tuning methods are specially proposed for large language models such as prefix tuning and LoRA. 
+ We adopt three different strategies for tuning the models, listed in descending order from the number of fine-tuned parameters.
  
  **(1) LoRA: Tuning with Low-rank Matrices**
  
  - sft_reward_training/run_lora.sh
  
  ```
-    --only_optimize_lora 
-    --lora_dim 8 
+    --only_optimize_lora    # if True, only optimizing the parameters of LoRA
+    --lora_dim 8  
     --lora_alpha 16 
     --lora_droppout 0.05 
     --lora_module_name ${LORA_MODULE_NAME} 
  ```
+
+ **(2) FixEmb: Tuning with Embedding Fixed**
+ 
+ - sft_reward_training/run_fixemb.sh
+ 
+ ```
+    --only_optimize_layers "9" "8" "7" "6" "5" "4" "3" "2" "1" "0" 
+ ```
+ 
+ **(2) Full: Tuning with Full Parameters**
+ 
+ - sft_reward_training/run_full.sh
+
+### Deepspeed Config
+
+- deepspeed_config/ds_config.json, deepspeed_config/ds_config_stage2.json, deepspeed_config/ds_config_stage3.json
+
+### Inference 
+
+ - inference/infer_bloom.py, inference/infer_llama.py
+ 
+ - inference/run_test_bloomz.sh
+ 
+ ```
+    --rootmodel   # if LoRA, the path of the foundation model
+    --ifhint      # add note indicates no mistakes in the hypothesize
+    --ifsample    # if true, use sample else beam search for inference
+    --ifreranking # use the preference score to select a preferred hypothesize in candidates
+    --vocab       # the dictionary for dict-guided inference
+    --reverse     # whether reverse the src language and tgt language when loading the dictionary
+ ```
+ 
+### Experimental Results
+
+We evaluate TIM's performance on the WMT and FLORES-200 dev-test tasks, comprising four language pairs.
+
+<div align="center">
+<img src="https://github.com/lemon0830/TIM/blob/main/images/Fig_Results.png" width="70%" alt="result"/>
+</div>
+
 
  
