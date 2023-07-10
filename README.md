@@ -10,6 +10,10 @@
     - **[TIM-BLOOMZ-7b](https://huggingface.co/Lemoooon/TIM-BLOOMZ-7b)**
     - **[TIM-LLaMA-13b](https://huggingface.co/Lemoooon/TIM-LLaMA-13b)**
 
+:star: **Tips** :star:
+- When training with Deepspeed ZeRO stage 1/2, we can set --use_low_cpu_mem=True to save memory usage
+- After training a model using Deepspeed **ZeRO stage3**, we need to use [sft_reward_training/change_param_name.py](https://github.com/lemon0830/TIM/blob/main/sft_reward_training/change_param_name.py) to perform a transformation of the model's parameter names before inference.
+
 ## Quick start
 
 ### Environment
