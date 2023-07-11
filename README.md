@@ -42,6 +42,18 @@ Requirements:
   
  - test data: [test_data/wmt22](https://github.com/lemon0830/TIM/tree/main/test_data/wmt22), [test_data/flores200](https://github.com/lemon0830/TIM/tree/main/test_data/flores200)
 
+ ### Data Construction for TIM
+ We modify add_noisy.py in [noisy-text](https://github.com/valentinmace/noisy-text).
+ 
+ - [add noisy](https://github.com/lemon0830/TIM/tree/main/noisy-text)
+
+ We use the following setting in our paper: 
+ ```
+    python add_noise.py data/example --delete_probability 0.15 --replace_probability 0.15  --filler_token '' --permutation_range 1
+ ```
+
+ Then, you can run [[run_reward.sh]](https://github.com/lemon0830/TIM/blob/main/data_processing/run_reward.sh) to get the final training data for TIM.
+ 
  ### Instruct Tuning with TIM
  
  We modify `run_clm.py` and `Trainer` in transformers, and `utils` for LoRA in Deepspeed-Chat.
