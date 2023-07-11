@@ -35,10 +35,6 @@ import datasets
 import torch
 from datasets import load_dataset, IterableDatasetDict
 
-import os
-os.environ['TRANSFORMERS_CACHE'] = '/apdcephfs_cq2/share_47076/lemonzeng/search/mGPT/data/cache/'
-# os.environ['SENTENCE_TRANSFORMERS_HOME'] = '/apdcephfs_cq2/share_47076/lemonzeng/search/mGPT/data/cache/'
-
 import transformers
 
 from transformers import (
