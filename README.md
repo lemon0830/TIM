@@ -117,7 +117,7 @@ Please kindly cite our paper if you find it helpful:
 ```ruby
 @inproceedings{zeng2023tim,
   title={TIM: Teaching LM to Translate with Comparison}, 
-  author={Jiali Zeng and Fandong Meng and Yongjing Yin and Jia Zhou},
+  author={Jiali Zeng and Fandong Meng and Yongjing Yin and Jie Zhou},
   booktitle = {ArXiv},
   year      = {2023},
   url = {https://arxiv.org/pdf/2307.04408.pdf}
