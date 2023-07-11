@@ -9,7 +9,7 @@
 - Try our fine-tuned model at the HuggingFace model hub:
     - **[TIM-BLOOMZ-7b](https://huggingface.co/Lemoooon/TIM-BLOOMZ-7b)**
     - **[TIM-LLaMA-13b](https://huggingface.co/Lemoooon/TIM-LLaMA-13b)**
-- Please refer our **[paper]()** for more detail. 
+- Please refer our **[paper](https://arxiv.org/pdf/2307.04408.pdf)** for more detail. 
 
 :star: **Tips** :star:
 - When training with Deepspeed ZeRO stage 1/2, we can set --use_low_cpu_mem=True to save memory usage
@@ -105,7 +105,8 @@ Please kindly cite our paper if you find it helpful:
   title={TIM: Teaching LM to Translate with Comparison}, 
   author={Jiali Zeng and Fandong Meng and Yongjing Yin and Jia Zhou},
   booktitle = {ArXiv},
-  year      = {2023}
+  year      = {2023},
+  url = {https://arxiv.org/pdf/2307.04408.pdf}
 }
 ```
  
