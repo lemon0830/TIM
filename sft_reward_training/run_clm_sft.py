@@ -35,6 +35,10 @@ import datasets
 import torch
 from datasets import load_dataset, IterableDatasetDict
 
+import os
+os.environ['TRANSFORMERS_CACHE'] = '/apdcephfs_cq2/share_47076/lemonzeng/search/mGPT/data/cache/'
+# os.environ['SENTENCE_TRANSFORMERS_HOME'] = '/apdcephfs_cq2/share_47076/lemonzeng/search/mGPT/data/cache/'
+
 import transformers
 
 from transformers import (
@@ -469,6 +473,9 @@ def main():
             config.update_from_string(model_args.config_overrides)
             logger.info(f"New config: {config}")
 
+    if "llama" in model_args.model_name_or_path:
+        model_args.use_fast_tokenizer = False
+
     tokenizer_kwargs = {
         "cache_dir": model_args.cache_dir,
         "use_fast": model_args.use_fast_tokenizer,
@@ -656,7 +663,7 @@ def main():
 
     with training_args.main_process_first(desc="dataset map tokenization"):
         if not data_args.streaming:
-            tokenized_datasets = raw_datasets.map(
+            lm_datasets = raw_datasets.map(
                 tokenize_function,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
@@ -709,17 +716,8 @@ def main():
             max_train_samples = min(len(train_dataset), data_args.max_train_samples)
             train_dataset = train_dataset.select(range(max_train_samples))
 
-        train_dataset = train_dataset.shuffle(seed=training_args.seed, buffer_size=data_args.stream_buffer_size)
-
-    # for step, inputs in enumerate(train_dataset):
-    #     print(inputs.keys())
-    #     text = inputs["input_ids"]
-    #     label = inputs["labels"]
-    #     print(inputs["input_ids"])
-    #     print(tokenizer.decode(text))
-    #     print(label)
-    #
-    #     exit()
+        if data_args.streaming:
+            train_dataset = train_dataset.shuffle(seed=training_args.seed, buffer_size=data_args.stream_buffer_size)
 
     if training_args.do_eval:
         if "validation" not in tokenized_datasets:

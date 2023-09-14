@@ -35,6 +35,10 @@ import datasets
 import torch
 from datasets import load_dataset, IterableDatasetDict
 
+import os
+os.environ['TRANSFORMERS_CACHE'] = '/apdcephfs_cq2/share_47076/lemonzeng/search/mGPT/data/cache/'
+# os.environ['SENTENCE_TRANSFORMERS_HOME'] = '/apdcephfs_cq2/share_47076/lemonzeng/search/mGPT/data/cache/'
+
 import transformers
 
 from transformers import (
@@ -58,6 +62,7 @@ from transformers.testing_utils import CaptureLogger
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
+
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.27.0.dev0")
@@ -468,6 +473,9 @@ def main():
             config.update_from_string(model_args.config_overrides)
             logger.info(f"New config: {config}")
 
+    if "llama" in model_args.model_name_or_path:
+        model_args.use_fast_tokenizer = False
+
     tokenizer_kwargs = {
         "cache_dir": model_args.cache_dir,
         "use_fast": model_args.use_fast_tokenizer,
@@ -496,7 +504,6 @@ def main():
             model_args.use_low_cpu_mem = False
 
         if "glm" in model_args.model_name_or_path:
-
             model = AutoModel.from_pretrained(
                 model_args.model_name_or_path,
                 from_tf=bool(".ckpt" in model_args.model_name_or_path),
@@ -601,6 +608,7 @@ def main():
         with CaptureLogger(tok_logger) as cl:
             sources_token = tokenizer(examples[text_column_name], add_special_tokens=False)
             label = tokenizer(examples["labels"], add_special_tokens=False)
+
             badout = tokenizer(examples["badouts"], add_special_tokens=False)
 
         # clm input could be much much longer than block_size
@@ -622,7 +630,7 @@ def main():
             att_s = sources_token["attention_mask"][idx][:Len_s]
             att_t = label["attention_mask"][idx]
             att_b = badout["attention_mask"][idx]
-
+            
             cur_input_ids = s + t
             bad_input_ids = s + b
             cur_labels = [IGNORE_IDX for _ in range(Len_s)] + t
@@ -678,19 +686,19 @@ def main():
 
     with training_args.main_process_first(desc="dataset map tokenization"):
         if not data_args.streaming:
-            tokenized_datasets = raw_datasets.map(
+            lm_datasets = raw_datasets.map(
                 tokenize_function,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer on dataset",
+                remove_columns=["input", "output", "instruction", "badouts"],
             )
         else:
             lm_datasets = raw_datasets.map(
                 tokenize_function,
                 batched=True,
-                remove_columns=[text_column_name,"input","output","instruction", "badouts"],
+                remove_columns=[text_column_name, "input","output","instruction", "badouts"],
             )
 
     if training_args.do_train:
@@ -703,7 +711,8 @@ def main():
             max_train_samples = min(len(train_dataset), data_args.max_train_samples)
             train_dataset = train_dataset.select(range(max_train_samples))
 
-        train_dataset = train_dataset.shuffle(seed=training_args.seed, buffer_size=data_args.stream_buffer_size)
+        if data_args.streaming:
+            train_dataset = train_dataset.shuffle(seed=training_args.seed, buffer_size=data_args.stream_buffer_size)
 
     # for step, inputs in enumerate(train_dataset):
     #     print(inputs.keys())

@@ -4,7 +4,9 @@
 # DeepSpeed Team
 import torch
 from torch import nn
-from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, LayerNorm, MSELoss
+from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, LayerNorm, MSELoss, MarginRankingLoss
+import random
+import copy
 
 ## Note that the following code is modified from
 ## https://github.com/CarperAI/trlx/blob/main/examples/summarize_rlhf/reward_model/reward_model.py
@@ -38,7 +40,6 @@ class RewardModel(nn.Module):
             self.case = 1
             self.rwmodel = base_model
 
-
         self.PAD_ID = tokenizer.pad_token_id
         self.tokenizer = tokenizer
         self.rl_alpha = rl_alpha
@@ -57,6 +58,12 @@ class RewardModel(nn.Module):
     def update_steps(self, step):
         self.step = step
 
+    def rrhf_loss(self, scores, idxs, rw_scores):
+        diff = scores.unsqueeze(0) - scores.unsqueeze(-1)  # b * b
+        rw_diff = rw_scores.unsqueeze(0) - rw_scores.unsqueeze(-1)  # b * b
+        aval = torch.bitwise_and(rw_diff > 0, diff < 0)[0]
+        return -diff[aval].sum()
+
     def forward(self,
                 input_ids=None,
                 past_key_values=None,
@@ -66,12 +73,13 @@ class RewardModel(nn.Module):
                 inputs_embeds=None,
                 labels = None,
                 use_cache=False):
-        
+
         seq_len = input_ids.shape[1] // 2
 
         input_ids = torch.cat([input_ids[:, :seq_len], input_ids[:, seq_len:]], dim=0)
         if attention_mask is not None:
             attention_mask = torch.cat([attention_mask[:, :seq_len], attention_mask[:, seq_len:]], dim=0)
+
         labels = torch.cat([labels[:, :seq_len], labels[:, seq_len:]], dim=0)
 
         if self.case == 0:
@@ -79,7 +87,6 @@ class RewardModel(nn.Module):
                 input_ids,
                 past_key_values=past_key_values,
                 attention_mask=attention_mask,
-                #head_mask=head_mask,
                 inputs_embeds=inputs_embeds,
                 use_cache=use_cache)
         elif self.case == 1:
@@ -100,7 +107,6 @@ class RewardModel(nn.Module):
         else:
             lm_logits = self.rwmodel.transformer.output_layer(hidden_states)
             lm_logits = lm_logits.transpose(0, 1).contiguous()
-            # lm_logits = lm_logits.to(torch.float32)
             hidden_states = hidden_states.transpose(0, 1)
 
         rewards = self.v_head(hidden_states).squeeze(-1)
@@ -120,7 +126,7 @@ class RewardModel(nn.Module):
         chosen_rewards = rewards[:bs]
         rejected_rewards = rewards[bs:]
 
-        lm_loss = None
+        loss = None
         if labels is not None:
             # Shift so that tokens < n predict n
             shift_logits = lm_logits[..., :-1, :].contiguous()
@@ -128,65 +134,72 @@ class RewardModel(nn.Module):
             batch_size, seq_length, vocab_size = shift_logits.shape
             # Flatten the tokens
             loss_fct = CrossEntropyLoss()
-            lm_loss = loss_fct(
+            loss = loss_fct(
                 shift_logits.view(batch_size * seq_length, vocab_size), shift_labels.view(batch_size * seq_length)
             )
 
         # Compute pairwise loss. Only backprop on the different tokens before padding
-        loss = 0
+        r_loss = 0
+        margin_rank_loss = MarginRankingLoss(margin=1.0)
+        if self.rl_alpha > 0.:
+            for i in range(bs):
+                chosen_id = chosen_ids[i]
+                rejected_id = rejected_ids[i]
+                chosen_reward = chosen_rewards[i]
+                rejected_reward = rejected_rewards[i]
 
-        for i in range(bs):
-            chosen_id = chosen_ids[i]
-            rejected_id = rejected_ids[i]
-            chosen_reward = chosen_rewards[i]
-            rejected_reward = rejected_rewards[i]
+                c_inds = (chosen_id == self.PAD_ID).nonzero()
+                c_ind = c_inds[self.num_padding_at_beginning].item() if len(
+                    c_inds
+                ) > self.num_padding_at_beginning else seq_len  # OPT model pads the first token, so we need to use the second padding token as the end of the sequence
+                check_divergence = (chosen_id != rejected_id).nonzero()
 
-            c_inds = (chosen_id == self.PAD_ID).nonzero()
-            c_ind = c_inds[self.num_padding_at_beginning].item() if len(
-                c_inds
-            ) > self.num_padding_at_beginning else seq_len  # OPT model pads the first token, so we need to use the second padding token as the end of the sequence
-            check_divergence = (chosen_id != rejected_id).nonzero()
+                if len(check_divergence) == 0:
+                    end_ind = rejected_reward.size(-1)
+                    divergence_ind = end_ind - 1
+                    r_ind = c_ind
+                else:
+                    # Check if there is any padding otherwise take length of sequence
+                    r_inds = (rejected_id == self.PAD_ID).nonzero()
+                    r_ind = r_inds[self.num_padding_at_beginning].item(
+                    ) if len(r_inds) > self.num_padding_at_beginning else seq_len
 
-            if len(check_divergence) == 0:
-                end_ind = rejected_reward.size(-1)
-                divergence_ind = end_ind - 1
-                r_ind = c_ind
-            else:
-                # Check if there is any padding otherwise take length of sequence
-                r_inds = (rejected_id == self.PAD_ID).nonzero()
-                r_ind = r_inds[self.num_padding_at_beginning].item(
-                ) if len(r_inds) > self.num_padding_at_beginning else seq_len
+                    end_ind = max(c_ind, r_ind)
 
-                end_ind = max(c_ind, r_ind)
+                    divergence_ind = check_divergence[0]
 
-                divergence_ind = check_divergence[0]
+                if divergence_ind <= 0:
+                    continue
+                assert divergence_ind > 0, f"duvergebce_ind {divergence_ind}. No match chosen_id {self.tokenizer.decode(chosen_id)} and rejected_id {self.tokenizer.decode(rejected_id)}"
 
-            if divergence_ind <= 0:
-                continue
-            assert divergence_ind > 0, f"duvergebce_ind {divergence_ind}. No match chosen_id {self.tokenizer.decode(chosen_id)} and rejected_id {self.tokenizer.decode(rejected_id)}"
+                scores_A = chosen_reward[divergence_ind:end_ind]
+                scores_B = rejected_reward[divergence_ind:end_ind]
 
-            c_truncated_reward = chosen_reward[divergence_ind:end_ind]
-            r_truncated_reward = rejected_reward[divergence_ind:end_ind]
-            chosen_mean_scores.append(
-                chosen_reward[c_ind - 1])  #use the end score for reference
-            rejected_mean_scores.append(rejected_reward[r_ind - 1])
+                chosen_mean_scores.append(
+                    chosen_reward[c_ind - 1])  #use the end score for reference
+                rejected_mean_scores.append(rejected_reward[r_ind - 1])
 
-            reward_diff = c_truncated_reward - r_truncated_reward
+                pos_AB = scores_A.repeat(len(scores_A), 1) > scores_B.repeat(len(scores_A), 1)
 
-            loss += -torch.nn.functional.logsigmoid(reward_diff).mean()
+                loss_AB = margin_rank_loss(scores_A, scores_B, pos_AB.float())
+                r_loss += loss_AB / len(scores_A)
 
-        if self.Annealing_step > 0:
-            import math
-            loss = lm_loss + (1 - 1 / math.e ** (self.step / self.Annealing_step)) * loss / bs
-        else:
-            loss = lm_loss + self.rl_alpha * loss / bs
+            r_loss = r_loss / bs
+
+            loss = loss + r_loss
+
+        # print("good:", [i.item() for i in chosen_mean_scores])
+        # print("bad :", [i.item() for i in rejected_mean_scores])
 
         if len(chosen_mean_scores) > 0:
             chosen_mean_scores = torch.stack(chosen_mean_scores)
             rejected_mean_scores = torch.stack(rejected_mean_scores)
 
         return {
+            "logits": shift_logits,
+            "labels": shift_labels,
             "loss": loss,
+            "r_loss": r_loss.item() if self.rl_alpha > 0 else 0.,
             "chosen_mean_scores": chosen_mean_scores,
             "rejected_mean_scores": rejected_mean_scores,
         }

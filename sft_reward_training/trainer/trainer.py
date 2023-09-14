@@ -1776,22 +1776,6 @@ class Trainer:
                     # AT THE VERY END!
                     _ = list(train_dataloader.sampler)
 
-        # for epoch in range(0, 1):
-        #     fout = open(f"/apdcephfs_cq2/share_47076/lemonzeng/search/mGPT/instruct_pretrain/inputs_{epoch}{args.local_rank}.txt", "w")
-        #     train_dataloader.dataset.set_epoch(epoch)
-        #     print(f"##Epoch {epoch}")
-        #     for step, inputs in enumerate(train_dataloader):
-        #         text = inputs["input_ids"]
-        #         text_list = [torch.zeros_like(text) for _ in range(dist.get_world_size())]
-        #         dist.all_gather(tensor_list=text_list, tensor=text.contiguous())
-        #         for i in text_list:
-        #             print(self.tokenizer.decode(i).replace("\n", ""))
-        #         exit()
-        #         fout.write(self.tokenizer.decode(i).replace("\n", "") + "\n")
-        #         if step % 100 == 0:
-        #             print(f"Processing step {step}")
-        #     fout.close()
-
 
         for epoch in range(epochs_trained, num_train_epochs):
 

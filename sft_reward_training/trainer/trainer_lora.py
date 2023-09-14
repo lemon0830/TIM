@@ -1692,7 +1692,7 @@ class Trainer:
             self.model = only_optimize_layer_parameters(self.model, self.args.only_optimize_layers)
 
 
-        if self.args.rl_alpha > 0.:
+        if self.args.rl_alpha >= 0.:
             print("Tuning with TIM~")
             self.model = RewardModel(self.model, self.tokenizer, rl_alpha=self.args.rl_alpha)
         else:
@@ -1833,22 +1833,6 @@ class Trainer:
                     # AT THE VERY END!
                     _ = list(train_dataloader.sampler)
 
-        # for epoch in range(0, 1):
-        #     fout = open(f"/apdcephfs_cq2/share_47076/lemonzeng/search/mGPT/instruct_pretrain/inputs_{epoch}{args.local_rank}.txt", "w")
-        #     train_dataloader.dataset.set_epoch(epoch)
-        #     print(f"##Epoch {epoch}")
-        #     for step, inputs in enumerate(train_dataloader):
-        #         text = inputs["input_ids"]
-        #         text_list = [torch.zeros_like(text) for _ in range(dist.get_world_size())]
-        #         dist.all_gather(tensor_list=text_list, tensor=text.contiguous())
-        #         for i in text_list:
-        #             print(self.tokenizer.decode(i).replace("\n", ""))
-        #         exit()
-        #         fout.write(self.tokenizer.decode(i).replace("\n", "") + "\n")
-        #         if step % 100 == 0:
-        #             print(f"Processing step {step}")
-        #     fout.close()
-
         for epoch in range(epochs_trained, num_train_epochs):
 
             logger.info(
@@ -1866,7 +1850,7 @@ class Trainer:
                     f"Your dataloader are IterableDatasetShard, and shuffle in {epoch}"
                 )
             else:
-                train_dataloader.dataset.set_epoch(epoch)
+                # train_dataloader.dataset.set_epoch(epoch)
                 logger.warning(
                     "You enabled no random sample for each epoch ."
                 )
@@ -2253,6 +2237,7 @@ class Trainer:
             tr_loss -= tr_loss
 
             logs["loss"] = round(tr_loss_scalar / (self.state.global_step - self._globalstep_last_logged), 4)
+            logs["r_loss"] = round(self.r_loss, 4)
             logs["learning_rate"] = self._get_learning_rate()
 
             self._total_loss_scalar += tr_loss_scalar
@@ -2716,11 +2701,22 @@ class Trainer:
 
         Subclass and override for custom behavior.
         """
-        if self.label_smoother is not None and "labels" in inputs:
+
+        if self.label_smoother is not None and "labels" in inputs and self.args.rl_alpha < 0.:
             labels = inputs.pop("labels")
         else:
             labels = None
+
         outputs = model(**inputs)
+
+        if self.label_smoother is not None and "labels" in outputs and self.args.rl_alpha >= 0.:
+            labels = outputs["labels"]
+
+        if "r_loss" in outputs:
+            self.r_loss = outputs["r_loss"]
+        else:
+            self.r_loss = 0.
+
         # Save past state if it exists
         # TODO: this needs to be fixed and made cleaner later.
         if self.args.past_index >= 0:
@@ -2728,9 +2724,9 @@ class Trainer:
 
         if labels is not None:
             if unwrap_model(model)._get_name() in MODEL_FOR_CAUSAL_LM_MAPPING_NAMES.values():
-                loss = self.label_smoother(outputs, labels, shift_labels=True)
+                loss = self.label_smoother(outputs, labels, shift_labels=True) + outputs["r_loss"]
             else:
-                loss = self.label_smoother(outputs, labels)
+                loss = self.label_smoother(outputs, labels) + outputs["r_loss"]
         else:
             if isinstance(outputs, dict) and "loss" not in outputs:
                 raise ValueError(
