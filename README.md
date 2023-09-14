@@ -3,17 +3,20 @@
 # **TIM: Teaching LM to Translate with Comparison**
 
 :star: **Support** :star:
-- LLMs: BLOOM-(e.g., [BLOOM-1b7](https://huggingface.co/bigscience/bloomz-1b7), [BLOOMZ-7b1-mt](https://huggingface.co/bigscience/bloomz-7b1-mt)), LLaMA-(e.g., [LLaMA-7b](https://huggingface.co/yahma/llama-7b-hf),[LLaMA-13b](https://huggingface.co/yahma/llama-13b-hf)), ChatGLM-(e.g., [ChatGLM2-6b](https://huggingface.co/THUDM/chatglm2-6b))
+- LLMs: BLOOM-(e.g., [BLOOM-1b7](https://huggingface.co/bigscience/bloomz-1b7), [BLOOMZ-7b1-mt](https://huggingface.co/bigscience/bloomz-7b1-mt)), LLaMA-(e.g., [LLaMA-7b](https://huggingface.co/yahma/llama-7b-hf),[LLaMA-13b](https://huggingface.co/yahma/llama-13b-hf)), LLaMA2-(e.g., [LLaMA2-7b](https://huggingface.co/meta-llama/Llama-2-7b-hf),[LLaMA2-13b](https://huggingface.co/meta-llama/Llama-2-13b-hf)), ChatGLM-(e.g., [ChatGLM2-6b](https://huggingface.co/THUDM/chatglm2-6b))
 - our Proposed TIM [[run_clm.py](https://github.com/lemon0830/TIM/blob/main/sft_reward_training/run_clm.py)] and Vanilla Instruct-tuning[[run_clm_sft.py]](https://github.com/lemon0830/TIM/blob/main/sft_reward_training/run_clm_sft.py)
 - LoRA, Tuning with Embedding Fixed, Full Parameters Tuning
 - [Data-streaming](https://github.com/huggingface/datasets/blob/5f810b7011a8a4ab077a1847c024d2d9e267b065/docs/source/stream.mdx)
 - Distributed training with [deepspeed ZeRO stage 1/2/3](https://huggingface.co/docs/transformers/main_classes/deepspeed) 
-- Try our fine-tuned model at the HuggingFace model hub:
+<!-- - Try our fine-tuned model at the HuggingFace model hub:
     - **[TIM-BLOOMZ-7b](https://huggingface.co/Lemoooon/TIM-BLOOMZ-7b)**
-    - **[TIM-LLaMA-13b](https://huggingface.co/Lemoooon/TIM-LLaMA-13b)**
+    - **[TIM-LLaMA-13b](https://huggingface.co/Lemoooon/TIM-LLaMA-13b)** -->
 - Please refer our **[paper](https://arxiv.org/pdf/2307.04408.pdf)** for more detail. 
 
 :star: **Tips** :star:
+- [20230914] We update the preference loss function of TIM, which makes the training more stable.
+- [20230914] We fix the bug when using Data Cache (i.e., --streaming=False) for training. 
+- When datastreaming is turned on, it is recommended to shuffle the training data first.
 - When training with Deepspeed ZeRO stage 1/2, we can set --use_low_cpu_mem=True to save memory usage
 - After training a model using Deepspeed **ZeRO stage3**, we need to use [sft_reward_training/change_param_name.py](https://github.com/lemon0830/TIM/blob/main/sft_reward_training/change_param_name.py) to perform a transformation of the model's parameter names before inference.
 
@@ -65,6 +68,9 @@ Requirements:
  - [sft_reward_training/run_lora.sh](https://github.com/lemon0830/TIM/blob/main/sft_reward_training/run_lora.sh)
  
  ```
+    LORA_MODULE_NAME="query_key_value" # for BLOOM
+    LORA_MODULE_NAME="q_proj,k_proj,v_proj,o_proj" # for Llama
+
     --only_optimize_lora    # if True, only optimizing the parameters of LoRA
     --lora_dim 8  
     --lora_alpha 16 
@@ -95,6 +101,7 @@ Requirements:
  - [inference/run_test_bloomz.sh](https://github.com/lemon0830/TIM/blob/main/inference/run_test_bloomz.sh)
  
  ```
+    -l            # using LoRA
     --rootmodel   # if LoRA, the path of the foundation model
     --ifhint      # add note indicates no mistakes in the hypothesize
     --ifsample    # if true, use sample else beam search for inference
@@ -110,6 +117,7 @@ We evaluate TIM's performance on the WMT and FLORES-200 dev-test tasks, comprisi
 <div align="center">
 <img src="https://github.com/lemon0830/TIM/blob/main/images/Fig_Results.png" width="70%" alt="result"/>
 </div>
+
 
 ### Citation
 Please kindly cite our paper if you find it helpful:
