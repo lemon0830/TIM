@@ -119,6 +119,9 @@ We evaluate TIM's performance on the WMT and FLORES-200 dev-test tasks, comprisi
 </div>
 
 
+<div align="center">
+<img src="https://github.com/lemon0830/TIM/blob/main/images/Fig_ZeroShot_Results.png" width="70%" alt="result"/>
+</div>
 ### Citation
 Please kindly cite our paper if you find it helpful:
 
