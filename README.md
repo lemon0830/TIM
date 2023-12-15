@@ -14,6 +14,7 @@
 - Please refer our **[paper](https://arxiv.org/pdf/2307.04408.pdf)** for more detail. 
 
 :star: **Tips** :star:
+- [20231215] We added the flash-attention for faster training.
 - [20230914] We update the preference loss function of TIM, which makes the training more stable.
 - [20230914] We fix the bug when using Data Cache (i.e., --streaming=False) for training. 
 - When datastreaming is turned on, it is recommended to shuffle the training data first.
@@ -29,7 +30,7 @@ We develop TIM with [HuggingFaces's transformers](https://github.com/huggingface
 Requirements:
 - Python 3.7.9
 - Pytorch 1.10.0+cu111
-- Transformers 4.29
+- Transformers 4.28
 - accelerate==0.19.0
 - numpy==1.22.4
 - deepspeed==0.9.0
@@ -37,7 +38,7 @@ Requirements:
 
 ### Datasets
 
-- Training data: [train_data/alpaca_reward.json](https://github.com/lemon0830/TIM/blob/main/train_data/alpaca_reward.json), **[train.data.json](https://huggingface.co/datasets/Lemoooon/Train-for-TIM)**
+- Training data: [train_data/alpaca_reward.json](https://github.com/lemon0830/TIM/blob/main/train_data/alpaca_reward.json), **[train.wmt_hint_dict_revall_alpaca_lm1b.json](https://huggingface.co/datasets/Lemoooon/Train-for-TIM)**
 
   An essential ingredient of our method is the construction of samples used to provide comparison signals for model learning. In addition to regular translation data, we construct data used for comparison by introducing dictionary information or translation errors
 
