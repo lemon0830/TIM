@@ -14,7 +14,7 @@
 - Please refer our **[paper](https://arxiv.org/pdf/2307.04408.pdf)** for more detail. 
 
 :star: **Tips** :star:
-- [20231215] We added the flash-attention for faster training.
+- [20231215] We added the **flash-attention** for faster training. we can set --use_flash_attention to active flash-attention.
 - [20230914] We update the preference loss function of TIM, which makes the training more stable.
 - [20230914] We fix the bug when using Data Cache (i.e., --streaming=False) for training. 
 - When datastreaming is turned on, it is recommended to shuffle the training data first.
@@ -35,6 +35,7 @@ Requirements:
 - numpy==1.22.4
 - deepspeed==0.9.0
 - scikit-learn
+- flash-attn==2.0.1
 
 ### Datasets
 
